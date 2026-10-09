@@ -1,0 +1,39 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Local configuration and secrets
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data and local databases
+scans/
+*.sqlite
+*.sqlite3
+*.db
+
+# Git and editor files
+.git/
+.gitignore
+.vscode/
+.idea/
+.cybers/
+
+# Test output
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/

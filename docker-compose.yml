@@ -1,0 +1,111 @@
+name: avron
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-avron}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      POSTGRES_DB: ${DB_USERNAME:-avron}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-avron} -d ${DB_USERNAME:-avron}"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      target: final
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL_SYNC: postgresql+psycopg2://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  scanner:
+    build:
+      context: .
+      target: final
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      SCANNER_API_KEY: ${SCANNER_API_KEY:?Set SCANNER_API_KEY in .env}
+      DATABASE_URL: postgresql+asyncpg://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
+      DATABASE_URL_SYNC: postgresql+psycopg2://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - scan_data:/app/scans
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: final
+    command: ["celery", "-A", "app.celery_worker", "worker", "--loglevel=info", "--concurrency=4"]
+    environment:
+      SCANNER_API_KEY: ${SCANNER_API_KEY:?Set SCANNER_API_KEY in .env}
+      DATABASE_URL: postgresql+asyncpg://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
+      DATABASE_URL_SYNC: postgresql+psycopg2://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  scanner-test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    environment:
+      SCANNER_API_KEY: unit-test-key
+      DATABASE_URL: postgresql+asyncpg://localhost:5432/avron
+      DATABASE_URL_SYNC: postgresql+psycopg2://localhost:5432/avron
+      REDIS_URL: redis://localhost:6379/0
+      TESTING: "true"
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
+  scan_data:

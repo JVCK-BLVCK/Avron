@@ -1,0 +1,46 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+build/
+dist/
+.pytest_cache/
+.pytest-run/
+.pytest-tmp/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Local scan data and databases
+scans/
+*.sqlite
+*.sqlite3
+*.db
+
+# Editor and local tooling
+.idea/
+.vscode/
+.cybers/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
