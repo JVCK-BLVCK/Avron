@@ -3,7 +3,6 @@
 Tests for Phase 7 — configuration, metrics, and production readiness.
 """
 import pytest
-from unittest.mock import patch
 
 
 # ─── Configuration tests ──────────────────────────────────────────────────────
@@ -80,6 +79,27 @@ def test_settings_log_level_normalised_to_uppercase():
     assert s.log_level == "DEBUG"
 
 
+def test_settings_exposes_scan_timeout_and_optional_nvd_key():
+    from app.config import Settings
+
+    settings = Settings(
+        scanner_api_key="test-key",
+        scan_timeout_seconds=30,
+        nvd_api_key="test-nvd-key",
+    )
+
+    assert settings.scan_timeout_seconds == 30
+    assert settings.nvd_api_key == "test-nvd-key"
+
+
+def test_settings_rejects_non_positive_scan_timeout():
+    from pydantic import ValidationError
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(scanner_api_key="test-key", scan_timeout_seconds=0)
+
+
 # ─── Metrics tests ────────────────────────────────────────────────────────────
 
 def test_metrics_endpoint_accessible(client):
@@ -97,7 +117,6 @@ def test_scan_counter_increments(client):
     """Submitting a scan must increment the scans counter."""
     from app.metrics import SCANS_ACTIVE
 
-    before = SCANS_ACTIVE._value.get()
     client.post("/scan", json={"target_url": "https://example.com"})
     # Counter may or may not have incremented depending on async timing
     # — we just verify no exception was raised
@@ -143,7 +162,6 @@ def test_app_has_openapi_schema():
 
 def test_all_routes_have_tags():
     """Every route must have a tag for API documentation grouping."""
-    from fastapi import FastAPI
     from fastapi.routing import APIRoute
     from app.main import app
 

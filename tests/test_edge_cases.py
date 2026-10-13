@@ -1,7 +1,5 @@
 import json
-from typing import Literal
 import pytest
-from unittest.mock import patch
 from app.storage import save_scan, load_scan
 import asyncio
 
@@ -137,11 +135,8 @@ async def test_concurrent_writes_do_not_corrupt_data(patched_scan_dir):
     """Simultaneous writes to different scan files must all complete
     correctly without any file being corrupted or overwritten."""
 
-    import asyncio
 
     num_scans = 20 
-    errors = []
-
     async def write_scan(index):
         scan_id = f"concurrent-scan-{index:03d}"
         await save_scan(scan_id, {
@@ -174,7 +169,6 @@ async def test_concurrent_reads_return_correct_data(patched_scan_dir):
     """Simultaneous reads of the same scan must all return identical data.
     A read that returns partial data mid-write is a race condition."""
 
-    import asyncio
     
     scan_data = {
         "scan_id":   "shared-scan-001",

@@ -1,9 +1,11 @@
 "Nuclei Execution Logic"
 import json
 import logging
+import queue
 import subprocess
 import sys
 import threading
+import time
 
 from app.metrics import (
     SCANS_TOTAL, SCAN_DURATION, SCANS_ACTIVE, FINDINGS_TOTAL
@@ -11,6 +13,7 @@ from app.metrics import (
 from datetime import datetime, timezone
 from app.storage_db import save_scan_sync   # sync writer — no asyncio.run()
 from app.models import resolve_target_for_scan
+from app.config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -53,6 +56,7 @@ def run_nuclei(scan_id: str, target_url: str):
 
     # Increment active scans
     SCANS_ACTIVE.inc()
+    status = "in_progress"
     
     logger.info(json.dumps({
         "event": "nuclei_scan_started",
@@ -143,17 +147,33 @@ def run_nuclei(scan_id: str, target_url: str):
             stderr_thread.start()
 
 
-        # ___STREAMING LOOP___
-        # Read stdout one line at a time. Each line is a complete JSON finding.
-        # This allows us to save results incrementally and update scan status in real-time, rather than waiting for the entire scan to finish.
-        # save_scan_sync writes atomically after every finding so get_scan_status always returns a valid, up-to-date snapshot.
-        # No asyncio.run() - no second event loop - no file-lock deadlock.
-        deadline = started.timestamp() + 600  # 10 minute deadline
+        # Read output on a helper thread so the timeout also applies while
+        # Nuclei is quiet. Iterating a subprocess pipe directly can block
+        # forever before the next output line arrives.
+        stdout_queue: queue.Queue[str | object] = queue.Queue()
+        stdout_done = object()
 
-        for raw_line in proc.stdout:
-            if datetime.now(timezone.utc).timestamp() > deadline:
+        def _read_stdout(pipe):
+            try:
+                for output_line in pipe:
+                    stdout_queue.put(output_line)
+            finally:
+                stdout_queue.put(stdout_done)
+
+        stdout_thread = threading.Thread(
+            target=_read_stdout,
+            args=(proc.stdout,),
+            daemon=True,
+        )
+        stdout_thread.start()
+        deadline = time.monotonic() + settings.scan_timeout_seconds
+
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 proc.kill()
-                error = "Nuclei scan timed out after 10 minutes"
+                status = "failed"
+                error = f"Nuclei scan timed out after {settings.scan_timeout_seconds} seconds"
                 logger.error(json.dumps({
                     "event": "scan_timeout",
                     "scan_id": scan_id,
@@ -162,8 +182,16 @@ def run_nuclei(scan_id: str, target_url: str):
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }))
                 break
-            
-            line = raw_line.strip()
+
+            try:
+                raw_line = stdout_queue.get(timeout=min(remaining, 0.25))
+            except queue.Empty:
+                continue
+
+            if raw_line is stdout_done:
+                break
+
+            line = str(raw_line).strip()
             if not line:
                 continue
 
@@ -196,7 +224,14 @@ def run_nuclei(scan_id: str, target_url: str):
 
         # ___END STREAMING LOOP___
 
-        proc.wait()
+        try:
+            proc.wait(timeout=max(0.1, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            status = "failed"
+            error = f"Nuclei scan timed out after {settings.scan_timeout_seconds} seconds"
+        stdout_thread.join(timeout=5)
         if stderr_thread is not None:
             stderr_thread.join(timeout=5)
         stderr = "".join(stderr_lines)
@@ -222,6 +257,7 @@ def run_nuclei(scan_id: str, target_url: str):
 
 
     except subprocess.CalledProcessError as e:
+        status = "failed"
         error = f"Nuclei scan failed with exit code: {e.returncode}"
         logger.error(json.dumps({
             "event": "scan_process_failed",
@@ -237,6 +273,7 @@ def run_nuclei(scan_id: str, target_url: str):
         SCANS_TOTAL.labels(status="failed").inc()
     
     except FileNotFoundError:
+        status = "failed"
         error = "Nuclei not found in system PATH"
         logger.error(json.dumps({
             "event": "nuclei_not_found",
@@ -249,6 +286,12 @@ def run_nuclei(scan_id: str, target_url: str):
 
         # Increment failed scans
         SCANS_TOTAL.labels(status="failed").inc()
+
+    except Exception:
+        status = "failed"
+        error = "Nuclei scan failed due to an internal error"
+        logger.exception("nuclei_scan_unexpected_error", extra={"scan_id": scan_id})
+        raise
 
     finally:
 

@@ -13,7 +13,6 @@ import json
 import socket
 
 import pytest 
-from pathlib import Path
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 
@@ -97,8 +96,20 @@ def use_in_memory_storage():
     save_mock = AsyncMock(side_effect=_mock_save_scan)
     load_mock = AsyncMock(side_effect=_mock_load_scan)
 
+    async def _mock_get_scans_by_target(target: str, limit: int = 10):
+        matching = [
+            value for value in _scan_storage.values()
+            if value.get("target") == target
+        ]
+        return matching[:limit]
+
+    history_mock = AsyncMock(side_effect=_mock_get_scans_by_target)
+
     with patch("app.main.save_scan",                       new=save_mock), \
          patch("app.main.load_scan",                       new=load_mock), \
+         patch("app.mcp_server.save_scan",                 new=save_mock), \
+         patch("app.mcp_server.load_scan",                 new=load_mock), \
+         patch("app.mcp_server.get_scans_by_target",       new=history_mock), \
          patch("app.storage_db.save_scan",                 new=save_mock), \
          patch("app.storage_db.load_scan",                 new=load_mock):
         
@@ -108,7 +119,7 @@ def use_in_memory_storage():
 
 @pytest.fixture(autouse=True)
 def prevent_real_nuclei_execution():
-    """Prevent API tests from submitting tasks to a real Redis broker."""
+    """Prevent API and MCP tests from submitting work to a real Redis broker."""
     from app.celery_worker import run_scan_task
 
     with patch.object(run_scan_task, "apply_async", return_value=MagicMock()), \

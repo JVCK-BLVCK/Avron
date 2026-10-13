@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.models_db import Scan
 
 

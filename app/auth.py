@@ -37,8 +37,8 @@ def get_api_key() -> str:
     making them much safer for managing secrets like API Keys.
 
     In development: set it in your Shell
-    $env:SCANNER_API_KEY = "your-dev-secret-key" # PowerShell
-    export SCANNER_API_KEY="your-dev-secret-key" # Bash/Linux/Mac
+    $env:SCANNER_API_KEY = "replace-with-a-long-random-key" # PowerShell
+    export SCANNER_API_KEY="replace-with-a-long-random-key" # Bash/Linux/Mac
 
     In production: set it in your hosting environment's secret manager or 
     environment variable configuration (e.g. AWS Secrets Manager, Heroku Config Vars, etc.)

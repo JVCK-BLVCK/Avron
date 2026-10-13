@@ -1,5 +1,4 @@
 "Storage logic for scan results (Save/load)"
-import os
 import asyncio
 import json 
 import logging

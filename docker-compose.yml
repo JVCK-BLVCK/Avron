@@ -3,6 +3,8 @@ name: avron
 services:
   postgres:
     image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${DB_USERNAME:-avron}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
@@ -20,6 +22,8 @@ services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -52,6 +56,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
       DATABASE_URL_SYNC: postgresql+psycopg2://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
       REDIS_URL: redis://redis:6379/0
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      SCAN_TIMEOUT_SECONDS: ${SCAN_TIMEOUT_SECONDS:-600}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       - scan_data:/app/scans
     depends_on:
@@ -77,12 +85,15 @@ services:
     build:
       context: .
       target: final
-    command: ["celery", "-A", "app.celery_worker", "worker", "--loglevel=info", "--concurrency=4"]
+    command: ["celery", "-A", "app.celery_worker", "worker", "--loglevel=${LOG_LEVEL:-INFO}", "--concurrency=4"]
     environment:
       SCANNER_API_KEY: ${SCANNER_API_KEY:?Set SCANNER_API_KEY in .env}
       DATABASE_URL: postgresql+asyncpg://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
       DATABASE_URL_SYNC: postgresql+psycopg2://${DB_USERNAME:-avron}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_USERNAME:-avron}
       REDIS_URL: redis://redis:6379/0
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      SCAN_TIMEOUT_SECONDS: ${SCAN_TIMEOUT_SECONDS:-600}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       postgres:
         condition: service_healthy

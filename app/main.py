@@ -11,6 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from prometheus_fastapi_instrumentator import Instrumentator
+from app.config import settings
 from app.celery_worker import run_scan_task
 from app.auth import verify_api_key
 from app.logging_config import setup_logging
@@ -23,7 +24,7 @@ from app.storage_db import load_scan, save_scan
 
 # Initialize structured JSON logging before anything else 
 # to ensure all loggers in all modules use this configuration automatically
-setup_logging(level="INFO")
+setup_logging(level=settings.log_level)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,8 @@ app = FastAPI(
 
 # Instrument all routes automatically - adds request count, 
 # latency histograms, and response size metrics to every endpoint
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+if settings.metrics_enabled:
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 # Register the rate limit exceeded handler with FastAPI's exception handling system

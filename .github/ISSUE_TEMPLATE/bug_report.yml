@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible defect in Avron.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Before submitting, remove API keys, credentials, real scan results, and private target information.
+  - type: input
+    id: version
+    attributes:
+      label: Avron version or commit
+      placeholder: 0.1.0-mvp or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation method
+      options:
+        - Docker Compose
+        - Python environment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include relevant redacted logs and response codes.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use an example domain or a system you are authorized to test.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and privacy
+      options:
+        - label: I removed secrets and private scan data.
+          required: true
+        - label: Any target described is mine or I have permission to test it.
+          required: true

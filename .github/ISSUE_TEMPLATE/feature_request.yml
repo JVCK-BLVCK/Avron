@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a safe and useful improvement.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What task is difficult or unsupported today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and authorization considerations
+      description: Explain how the proposal preserves authorized-use boundaries and safe defaults.
+    validations:
+      required: true

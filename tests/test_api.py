@@ -1,13 +1,9 @@
-from fastapi import responses
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 import asyncio
-from app.storage import save_scan, load_scan
+from app.storage import save_scan
 from fastapi.testclient import TestClient
-from pathlib import Path
-from app.rate_limiter import limiter
 from app.main import app
-from slowapi.errors import RateLimitExceeded
 
 
 # ___Health_Checking___

@@ -13,7 +13,7 @@ These two representations of a "scan" serve different masters:
 """
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, Text
+from sqlalchemy import Integer, String, DateTime, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.base import Base
 

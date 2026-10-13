@@ -33,6 +33,19 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/0",
         description="Redis connection URL used by Celery",
     )
+    nvd_api_key: str | None = Field(
+        default=None,
+        description="Optional NVD API key for higher CVE lookup rate limits",
+    )
+    scan_timeout_seconds: int = Field(
+        default=600,
+        ge=1,
+        description="Maximum duration of a Nuclei scan in seconds",
+    )
+    metrics_enabled: bool = Field(
+        default=True,
+        description="Expose Prometheus metrics at /metrics",
+    )
     scan_dir: str = Field(
         default="",
         description="Optional absolute directory for local scan status files",
